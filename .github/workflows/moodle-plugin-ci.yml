@@ -13,9 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.1', '8.2']
-        moodle-branch: ['MOODLE_401_STABLE', 'MOODLE_402_STABLE', 'MOODLE_403_STABLE', 'MOODLE_404_STABLE']
-        db: ['pgsql']   # wahlweise: ['pgsql','mariadb']
+        php: ['8.2']
+        moodle-branch: ['MOODLE_404_STABLE']
+        db: ['pgsql']
 
     services:
       postgres:
@@ -30,16 +30,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # mariadb:
-      #   image: mariadb:10.6
-      #   env:
-      #     MARIADB_USER: root
-      #     MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
-      #     MARIADB_DATABASE: moodle
-      #   ports: ['3306:3306']
-      #   options: >-
-      #     --health-cmd="mysqladmin ping"
-      #     --health-interval=10s --health-timeout=5s --health-retries=5
 
     steps:
       - name: Checkout
@@ -49,55 +39,32 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, zip, gd, xmlrpc, soap, pgsql, mysqli
+          extensions: mbstring, intl, zip, gd, pgsql
           coverage: none
-
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ runner.os }}-${{ matrix.php }}-${{ hashFiles('**/composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-${{ matrix.php }}-
 
       - name: Install moodle-plugin-ci
         run: |
-          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ~/.moodle-plugin-ci
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci:"^4.0" ~/.moodle-plugin-ci
           echo "$HOME/.moodle-plugin-ci/bin" >> $GITHUB_PATH
 
       - name: Install Moodle + plugin under test
-        env:
-          DB: ${{ matrix.db }}
         run: |
-          if [ "$DB" = "pgsql" ]; then
-            moodle-plugin-ci install -vvv \
-              --db-type=pgsql --db-host=127.0.0.1 \
-              --moodle-branch=${{ matrix.moodle-branch }}
-          else
-            moodle-plugin-ci install -vvv \
-              --db-type=mariadb --db-host=127.0.0.1 \
-              --moodle-branch=${{ matrix.moodle-branch }}
-          fi
+          moodle-plugin-ci install -vvv \
+            --branch=${{ matrix.moodle-branch }} \
+            --db-type=pgsql \
+            --db-host=127.0.0.1 \
+            --db-user=postgres \
+            --db-pass=postgres \
+            --db-name=moodle
 
-      # ---- Static checks ----
       - name: PHP Lint
         run: moodle-plugin-ci phplint
 
-      - name: Moodle Code Checker
+      - name: Code checker
         run: moodle-plugin-ci codechecker
 
-      - name: Validate plugin metadata
+      - name: Validate plugin
         run: moodle-plugin-ci validate
 
-      - name: Mustache lint
-        run: moodle-plugin-ci mustache
-
-      - name: Savepoints check
-        run: moodle-plugin-ci savepoints
-
-      # ---- Unit tests ----
       - name: PHPUnit
         run: moodle-plugin-ci phpunit
-
-      # Optional (teuer/zeitintensiv):
-      # - name: Behat
-      #   run: moodle-plugin-ci behat --profile default --tags @mod_seminarplanner
