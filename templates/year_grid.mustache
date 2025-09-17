@@ -1,0 +1,84 @@
+<div class="mb-3">
+  <form method="get" action="/mod/seminarplanner/view.php" class="form-inline">
+    <input type="hidden" name="id" value="{{cmid}}"/>
+    <label class="mr-2">{{#str}}year, mod_seminarplanner{{/str}}</label>
+    <input type="number" name="year" value="{{year}}" class="form-control mr-3" style="width:120px" />
+    <input type="text" name="q" value="{{q}}" placeholder="Suche (Name, Ort, Trainer/in, Zielgruppe)..." class="form-control mr-2" style="min-width:280px" />
+    <select name="cat" class="form-control mr-2">
+      <option value="">Kategorie (alle)</option>
+      {{#categories}}
+        <option value="{{name}}" {{#selected}}selected{{/selected}}>{{name}}</option>
+      {{/categories}}
+    </select>
+    <button class="btn btn-primary ml-2" type="submit">Suchen</button> <a class="btn btn-outline-secondary ml-2" href="/mod/seminarplanner/view.php?id={{cmid}}&year={{year}}">Zurücksetzen</a>
+    
+  </form>
+</div>
+
+{{#searchmode}}
+  <div class="card mb-4 shadow-sm border-primary">
+    <div class="card-header bg-light"><strong>Suchergebnisse</strong> <span class="text-muted">({{resultcount}})</span></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover mb-0">
+        <thead>
+          <tr>
+            <th>{{#str}}start, mod_seminarplanner{{/str}}</th>
+            <th>{{#str}}end, mod_seminarplanner{{/str}}</th>
+            <th>{{#str}}events, mod_seminarplanner{{/str}}</th>
+            <th>{{#str}}location, mod_seminarplanner{{/str}}</th>
+            <th>{{#str}}trainer, mod_seminarplanner{{/str}}</th>
+            <th>{{#str}}category, mod_seminarplanner{{/str}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#results}}
+          <tr>
+            <td>{{date}} {{time_start}}</td>
+            <td>{{date_end}} {{time_end}}</td>
+            <td><a href="{{{url}}}">{{title}}</a></td>
+            <td>{{location}}</td>
+            <td>{{trainer}}</td>
+            <td>{{category}}</td>
+          </tr>
+          {{/results}}
+          {{^results}}
+          <tr><td colspan="6" class="text-muted">{{#str}}none, mod_seminarplanner{{/str}}</td></tr>
+          {{/results}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{{/searchmode}}
+
+{{#searchmode}}
+  <div class="mb-3">
+    <a class="btn btn-outline-primary btn-sm" href="{{{searchurl}}}">Alle Ergebnisse anzeigen</a>
+  </div>
+{{/searchmode}}
+
+
+<div class="row mt-4">
+  {{#months}}
+  <div class="col-12 col-md-6 col-xl-4 mb-3">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong><a href="{{{monthurl}}}">{{name}} {{year}}</a></strong>
+        <span class="badge badge-light">{{count}}</span>
+      </div>
+      <div class="list-group list-group-flush">
+        {{#events}}
+        <div class="list-group-item">
+          <div class="font-weight-bold text-truncate"><a href="{{{url}}}">{{title}}</a></div>
+          <div class="text-muted small">{{date}} · {{time}} · {{location}}</div>
+          {{#trainer}}<span class="badge badge-secondary">{{trainer}}</span>{{/trainer}}
+        </div>
+        {{/events}}
+        {{^events}}
+        <div class="list-group-item text-muted font-italic">{{#str}}none, mod_seminarplanner{{/str}}</div>
+        {{/events}}
+      </div>
+      {{#hasmore}}<div class="card-footer"><em>+ weitere …</em></div>{{/hasmore}}
+    </div>
+  </div>
+  {{/months}}
+</div>

@@ -1,0 +1,6 @@
+{
+  "name": "moodle/mod_seminarplanner",
+  "type": "moodle-mod",
+  "require": { "phpoffice/phpspreadsheet": "^1.29" },
+  "autoload": { "psr-4": { "mod_seminarplanner\\": "classes/" } }
+}

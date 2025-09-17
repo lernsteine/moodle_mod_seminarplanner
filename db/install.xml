@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/seminarplanner/db" VERSION="2025091600">
+  <TABLES>
+    <TABLE NAME="seminarplanner">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
+        <FIELD NAME="intro" TYPE="text"/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="10"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true"/>
+      </FIELDS>
+      <KEYS><KEY NAME="primary" TYPE="primary" FIELDS="id"/></KEYS>
+    </TABLE>
+    <TABLE NAME="seminarplanner_evt">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="title" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="description" TYPE="text"/>
+        <FIELD NAME="starttime" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="endtime" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="location" TYPE="char" LENGTH="255"/>
+        <FIELD NAME="trainer" TYPE="char" LENGTH="255"/>
+        <FIELD NAME="category" TYPE="char" LENGTH="255"/>
+        <FIELD NAME="audience" TYPE="char" LENGTH="255"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="fk_instance" TYPE="foreign" FIELDS="instanceid" REFTABLE="seminarplanner" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="idx_instance" FIELDS="instanceid"/>
+        <INDEX NAME="idx_starttime" FIELDS="starttime"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
