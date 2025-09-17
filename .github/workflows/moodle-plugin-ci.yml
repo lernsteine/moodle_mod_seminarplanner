@@ -23,7 +23,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: moodle
+          POSTGRES_DB: postgres   # <— WICHTIG: NICHT 'moodle'
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
@@ -46,6 +46,11 @@ jobs:
         run: |
           composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci:"^4.0" ~/.moodle-plugin-ci
           echo "$HOME/.moodle-plugin-ci/bin" >> $GITHUB_PATH
+
+      # optional, aber macht den Install-Schritt idempotent
+      - name: Reset Postgres database (idempotent)
+        run: |
+          PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -d postgres -c 'DROP DATABASE IF EXISTS "moodle";'
 
       - name: Install Moodle + plugin under test
         run: |
