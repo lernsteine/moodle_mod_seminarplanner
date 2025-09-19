@@ -22,16 +22,86 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 defined('MOODLE_INTERNAL') || die();
-function seminarplanner_supports($feature){switch($feature){
- case FEATURE_MOD_INTRO: return true;
- case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
- case FEATURE_BACKUP_MOODLE2: return true;
- default: return null;}}
-function seminarplanner_add_instance($d,$m=null){global $DB;$r=(object)[
- 'course'=>$d->course,'name'=>$d->name,'intro'=>$d->intro,'introformat'=>$d->introformat,
- 'timecreated'=>time(),'timemodified'=>time()];return $DB->insert_record('seminarplanner',$r);}
-function seminarplanner_update_instance($d,$m=null){global $DB;$r=$DB->get_record('seminarplanner',['id'=>$d->instance],'*',MUST_EXIST);
- $r->name=$d->name;$r->intro=$d->intro;$r->introformat=$d->introformat;$r->timemodified=time();
- return $DB->update_record('seminarplanner',$r);}
-function seminarplanner_delete_instance($id){global $DB;if(!$DB->record_exists('seminarplanner',['id'=>$id]))return false;
- $DB->delete_records('seminarplanner_evt',['instanceid'=>$id]);$DB->delete_records('seminarplanner',['id'=>$id]);return true;}
+
+/**
+ * Declares supported features for this module.
+ *
+ * @param string $feature One of the FEATURE_* constants.
+ * @return mixed|null
+ */
+function seminarplanner_supports($feature) {
+    switch ($feature) {
+        case FEATURE_MOD_INTRO:
+            return true;
+
+        case FEATURE_COMPLETION_TRACKS_VIEWS:
+            return true;
+
+        case FEATURE_BACKUP_MOODLE2:
+            return true;
+
+        default:
+            return null;
+    }
+}
+
+/**
+ * Creates a new seminarplanner instance.
+ *
+ * @param stdClass $data  Form data from mod_form.
+ * @param MoodleQuickForm|null $mform The form instance (unused).
+ * @return int The ID of the new record.
+ */
+function seminarplanner_add_instance($data, $mform = null) {
+    global $DB;
+
+    $record = (object) [
+        'course'       => $data->course,
+        'name'         => $data->name,
+        'intro'        => $data->intro ?? '',
+        'introformat'  => $data->introformat ?? FORMAT_HTML,
+        'timecreated'  => time(),
+        'timemodified' => time(),
+    ];
+
+    return $DB->insert_record('seminarplanner', $record);
+}
+
+/**
+ * Updates an existing seminarplanner instance.
+ *
+ * @param stdClass $data  Form data from mod_form (contains ->instance).
+ * @param MoodleQuickForm|null $mform The form instance (unused).
+ * @return bool True on success.
+ */
+function seminarplanner_update_instance($data, $mform = null) {
+    global $DB;
+
+    $record = $DB->get_record('seminarplanner', ['id' => $data->instance], '*', MUST_EXIST);
+    $record->name         = $data->name;
+    $record->intro        = $data->intro ?? '';
+    $record->introformat  = $data->introformat ?? FORMAT_HTML;
+    $record->timemodified = time();
+
+    return $DB->update_record('seminarplanner', $record);
+}
+
+/**
+ * Deletes a seminarplanner instance and its events.
+ *
+ * @param int $id The instance ID.
+ * @return bool True on success, false if the record did not exist.
+ */
+function seminarplanner_delete_instance($id) {
+    global $DB;
+
+    if (!$DB->record_exists('seminarplanner', ['id' => $id])) {
+        return false;
+    }
+
+    $DB->delete_records('seminarplanner_evt', ['instanceid' => $id]);
+    $DB->delete_records('seminarplanner', ['id' => $id]);
+
+    return true;
+}
+

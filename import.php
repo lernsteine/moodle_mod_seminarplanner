@@ -21,27 +21,143 @@
  * @copyright  2025 Ralf Hagemeister <ralf.hagemeister@lernsteine.de>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-require_once(__DIR__.'/../../config.php'); require_once($CFG->libdir.'/formslib.php'); require_once(__DIR__.'/classes/importer/xls_importer.php');
+require_once(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/formslib.php');
+require_once(__DIR__ . '/classes/importer/xls_importer.php');
+
 $id = required_param('id', PARAM_INT);
-$cm = get_coursemodule_from_id('seminarplanner',$id,0,false,MUST_EXIST);
-$course = $DB->get_record('course',['id'=>$cm->course],'*',MUST_EXIST);
-$instance = $DB->get_record('seminarplanner',['id'=>$cm->instance],'*',MUST_EXIST);
-require_login($course,false,$cm); $context=context_module::instance($cm->id); require_capability('mod/seminarplanner:import',$context);
-$PAGE->set_url('/mod/seminarplanner/import.php',['id'=>$cm->id]); $PAGE->set_title(get_string('import','mod_seminarplanner')); $PAGE->set_heading(format_string($course->fullname));
-class import_form extends moodleform{function definition(){$m=$this->_form;$m->addElement('hidden','id');$m->setType('id',PARAM_INT);
- $m->addElement('filepicker','file',get_string('import','mod_seminarplanner'));$m->addRule('file',null,'required',null,'client');
- $this->add_action_buttons(true,get_string('import','mod_seminarplanner'));}}
-$f=new import_form(new moodle_url('/mod/seminarplanner/import.php',['id'=>$cm->id])); $f->set_data(['id'=>$cm->id]);
+
+$cm       = get_coursemodule_from_id('seminarplanner', $id, 0, false, MUST_EXIST);
+$course   = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
+$instance = $DB->get_record('seminarplanner', ['id' => $cm->instance], '*', MUST_EXIST);
+
+require_login($course, true, $cm);
+$context = context_module::instance($cm->id);
+require_capability('mod/seminarplanner:import', $context);
+
+$PAGE->set_url('/mod/seminarplanner/import.php', ['id' => $cm->id]);
+$PAGE->set_title(get_string('import', 'mod_seminarplanner'));
+$PAGE->set_heading(format_string($course->fullname));
+
+/**
+ * Simple import form: one filepicker.
+ */
+class mod_seminarplanner_import_form extends moodleform {
+    public function definition() {
+        $m = $this->_form;
+
+        $m->addElement('hidden', 'id');
+        $m->setType('id', PARAM_INT);
+
+        $m->addElement('filepicker', 'file', get_string('import', 'mod_seminarplanner'), null, [
+            'accepted_types' => ['.xls', '.xlsx'],
+            'maxbytes' => 0,
+        ]);
+        $m->addRule('file', null, 'required', null, 'client');
+
+        $this->add_action_buttons(true, get_string('import', 'mod_seminarplanner'));
+    }
+}
+
+$form = new mod_seminarplanner_import_form(
+    new moodle_url('/mod/seminarplanner/import.php', ['id' => $cm->id])
+);
+$form->set_data(['id' => $cm->id]);
+
 echo $OUTPUT->header();
-if(!\mod_seminarplanner\importer\xls_importer::is_available()){ echo $OUTPUT->notification(get_string('xlsmissing','mod_seminarplanner'),'notifyproblem'); echo html_writer::div('<code>cd moodle/mod/seminarplanner && composer install</code>');
- echo html_writer::div('Header: <code>title, startdate, starttime, enddate, endtime, location, trainer, category, audience</code>'); }
-if($f->is_cancelled()){ redirect(new moodle_url('/mod/seminarplanner/view.php',['id'=>$cm->id])); }
-elseif($d=$f->get_data()){ $draftid=file_get_submitted_draft_itemid('file'); $fs=get_file_storage(); $userctx=context_user::instance($USER->id);
- file_prepare_draft_area($draftid,$userctx->id,'user','draft',$draftid); $files=$fs->get_area_files($userctx->id,'user','draft',$draftid,'id',false);
- foreach($files as $file){ $path=make_temp_directory('seminarplanner').'/'.$file->get_contenthash().'.tmp'; $file->copy_content_to($path);
-  $imp=new \mod_seminarplanner\importer\xls_importer(); $events=$imp->parse($path);
-  foreach($events as $e){ $rec=(object)['instanceid'=>$instance->id,'title'=>$e->title,'starttime'=>$e->starttime,'endtime'=>$e->endtime,'location'=>$e->location??'','trainer'=>$e->trainer??'','category'=>$e->category??'','audience'=>$e->audience??'','timecreated'=>time(),'timemodified'=>time()]; $DB->insert_record('seminarplanner_evt',$rec); }
-  @unlink($path);
- }
- redirect(new moodle_url('/mod/seminarplanner/view.php',['id'=>$cm->id])); }
-$f->display(); echo $OUTPUT->footer();
+
+// Hint for parser.
+if (!\mod_seminarplanner\importer\xls_importer::is_available()) {
+    echo $OUTPUT->notification(
+        get_string('xlsmissing', 'mod_seminarplanner'),
+        \core\output\notification::NOTIFY_ERROR
+    );
+
+    // installation instruction .
+    $cmd = 'cd mod/seminarplanner && composer install';
+    echo html_writer::div(
+        html_writer::tag('code', s($cmd)),
+        'mb-2'
+    );
+
+    // expected column.
+    $headers = 'title, startdate, starttime, enddate, endtime, location, trainer, category, audience';
+    echo html_writer::div(
+        get_string('importheadershint', 'mod_seminarplanner', s($headers)),
+        'mb-3 text-muted'
+    );
+}
+
+if ($form->is_cancelled()) {
+    redirect(new moodle_url('/mod/seminarplanner/view.php', ['id' => $cm->id]));
+} else if ($data = $form->get_data()) {
+    require_sesskey();
+
+    // pick file.
+    $draftid = file_get_submitted_draft_itemid('file');
+    $fs      = get_file_storage();
+    $userctx = context_user::instance($USER->id);
+
+    // ensure the instalation of the draft area.
+    file_prepare_draft_area($draftid, $userctx->id, 'user', 'draft', $draftid);
+
+    $files = $fs->get_area_files($userctx->id, 'user', 'draft', $draftid, 'id', false);
+    if (empty($files)) {
+        echo $OUTPUT->notification(get_string('nofile', 'error'), \core\output\notification::NOTIFY_ERROR);
+    } else {
+        $inserted = 0;
+        $errors   = [];
+
+        foreach ($files as $file) {
+            // copy to temp-file.
+            $tmppath = make_temp_directory('seminarplanner') . '/' . $file->get_contenthash() . '.tmp';
+            $file->copy_content_to($tmppath);
+
+            try {
+                $imp    = new \mod_seminarplanner\importer\xls_importer();
+                $events = $imp->parse($tmppath); // Erwartet Array von Objekten mit Feldern s. u.
+
+                foreach ($events as $e) {
+                    $rec = (object)[
+                        'instanceid'   => $instance->id,
+                        'title'        => (string)$e->title,
+                        'starttime'    => (int)$e->starttime,
+                        'endtime'      => (int)$e->endtime,
+                        'location'     => (string)($e->location ?? ''),
+                        'trainer'      => (string)($e->trainer ?? ''),
+                        'category'     => (string)($e->category ?? ''),
+                        'audience'     => (string)($e->audience ?? ''),
+                        'timecreated'  => time(),
+                        'timemodified' => time(),
+                    ];
+                    $DB->insert_record('seminarplanner_evt', $rec);
+                    $inserted++;
+                }
+            } catch (moodle_exception $ex) {
+                $errors[] = $ex->getMessage();
+            } catch (Throwable $t) {
+                $errors[] = $t->getMessage();
+            } finally {
+                @unlink($tmppath);
+            }
+        }
+
+        if ($inserted > 0) {
+            echo $OUTPUT->notification(
+                get_string('importsuccesscount', 'mod_seminarplanner', $inserted),
+                \core\output\notification::NOTIFY_SUCCESS
+            );
+        }
+        foreach ($errors as $msg) {
+            echo $OUTPUT->notification(s($msg), \core\output\notification::NOTIFY_ERROR);
+        }
+
+        // back to main page.
+        redirect(new moodle_url('/mod/seminarplanner/view.php', ['id' => $cm->id]));
+    }
+}
+
+// show formular.
+$form->display();
+
+echo $OUTPUT->footer();

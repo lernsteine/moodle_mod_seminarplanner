@@ -38,3 +38,7 @@ $string['year']='Jahr';
 $string['yearview']='Jahresübersicht';
 $string['none']='Keine Einträge';
 $string['xlsmissing']='PhpSpreadsheet (composer) nicht gefunden. Bitte Abhängigkeiten installieren.';
+$string['import'] = 'Importieren';
+$string['xlsmissing'] = 'XLS/XLSX-Importer nicht verfügbar. Bitte Composer-Abhängigkeiten installieren.';
+$string['importheadershint'] = 'Erwartete Spaltenüberschriften: {$a}';
+$string['importsuccesscount'] = '{$a} Die Veranstaltungen wurden importiert.';
