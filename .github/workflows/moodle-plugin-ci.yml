@@ -2,124 +2,38 @@ name: Moodle Plugin CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   test:
+    name: Moodle Plugin CI - ${{ matrix.moodle-branch }}
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.2']
-        moodle-branch: ['MOODLE_404_STABLE']
-        db: ['pgsql']
-
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres   # NICHT "moodle", damit create database später klappt
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        moodle-branch: ['MOODLE_403_STABLE', 'MOODLE_400_STABLE', 'MOODLE_500_STABLE']
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout plugin code
+        uses: actions/checkout@v3
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Setup Moodle Plugin CI
+        uses: moodlehq/moodle-plugin-ci@v3
         with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, zip, gd, pgsql
-          coverage: none
+          moodle-branch: ${{ matrix.moodle-branch }}
 
-      - name: Install moodle-plugin-ci
+      - name: Run plugin CI checks
         run: |
-          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci:"^4.0" ~/.moodle-plugin-ci
-          echo "$HOME/.moodle-plugin-ci/bin" >> $GITHUB_PATH
+          moodle-plugin-ci lint
+          moodle-plugin-ci validate
+          moodle-plugin-ci codechecker
+          moodle-plugin-ci phpdoc
+          moodle-plugin-ci phpunit
 
-      # Idempotent: alte Test-DB dropen, falls bei Re-run noch vorhanden
-      - name: Reset Postgres database (idempotent)
-        if: matrix.db == 'pgsql'
-        run: |
-          PGPASSWORD=postgres psql -U postgres -h 127.0.0.1 -d postgres -c 'DROP DATABASE IF EXISTS "moodle";'
-
-      - name: Install Moodle + plugin under test
-        run: |
-          moodle-plugin-ci install -vvv \
-            --branch=${{ matrix.moodle-branch }} \
-            --db-type=pgsql \
-            --db-host=127.0.0.1 \
-            --db-user=postgres \
-            --db-pass=postgres \
-            --db-name=moodle
-
-      - name: PHP Lint
-        run: moodle-plugin-ci phplint
-
-      # ---------- Codechecker: Report + Auto-Fix + Artefakte ----------
-      - name: Moodle Code checker (report)
-        run: |
-          set +e
-          moodle-plugin-ci codechecker --report=full --report-width=200 --report-json=codechecker.json
-          STATUS=$?
-          echo "CC_STATUS_BEFORE=$STATUS" >> $GITHUB_ENV
-          exit 0
-
-      - name: Try auto-fix (phpcbf) and re-run codechecker
-        run: |
-          if [ "${{ env.CC_STATUS_BEFORE }}" != "0" ]; then
-            echo "🔧 Versuche automatische Fixes…"
-            moodle-plugin-ci phpcbf || true
-            set +e
-            moodle-plugin-ci codechecker --report=full --report-width=200 --report-json=codechecker_after.json
-            STATUS=$?
-            echo "CC_STATUS_AFTER=$STATUS" >> $GITHUB_ENV
-            exit 0
-          else
-            echo "Keine Style-Fehler im ersten Lauf."
-            echo "CC_STATUS_AFTER=0" >> $GITHUB_ENV
-          fi
-
-      - name: Print codechecker report to log
-        run: |
-          echo "===== Codechecker (vor Auto-Fix) ====="
-          # Text-Report (damit du ihn im Log siehst)
-          set +e
-          moodle-plugin-ci codechecker --report=full --report-width=200 || true
-          if [ "${{ env.CC_STATUS_AFTER }}" != "0" ]; then
-            echo "===== Codechecker (nach Auto-Fix) ====="
-            moodle-plugin-ci codechecker --report=full --report-width=200 || true
-          fi
-
-      - name: Upload codechecker reports
-        if: env.CC_STATUS_BEFORE != '0' || env.CC_STATUS_AFTER != '0'
-        uses: actions/upload-artifact@v4
+      - name: Upload Codechecker Report
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          name: codechecker-report
-          path: |
-            codechecker.json
-            codechecker_after.json
-          if-no-files-found: ignore
-
-      - name: Fail on remaining style errors
-        if: env.CC_STATUS_AFTER != '0'
-        run: |
-          echo "❌ Style-Fehler verbleiben. Siehe Artefakt 'codechecker-report'."
-          exit 1
-
-      # ---------- Weitere Checks ----------
-      - name: Validate plugin
-        run: moodle-plugin-ci validate
-
-      - name: PHPUnit
-        run: moodle-plugin-ci phpunit
+          name: codechecker-report-${{ matrix.moodle-branch }}
+          path: codechecker_after.json
